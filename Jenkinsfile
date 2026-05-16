@@ -543,45 +543,47 @@ pipeline {
             }
         }
 
-        stage('Container Image Scan') {
-            steps {
-                sh '''
-                docker run --rm \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v "$WORKSPACE:/repo" \
-                    -v trivy-cache:/root/.cache/ \
-                    aquasec/trivy:latest image \
-                    --severity ${SECURITY_SEVERITY} \
-                    --format json \
-                    --output reports/security/trivy-auth-image.json \
-                    --exit-code 0 \
-                    ${IMAGE_AUTH}:${BUILD_NUMBER}
+       stage('Container Image Scan') {
+    steps {
+        sh '''
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$WORKSPACE:/repo" \
+            -v trivy-cache:/root/.cache/ \
+            -w /repo \
+            aquasec/trivy:latest image \
+            --severity ${SECURITY_SEVERITY} \
+            --format json \
+            --output reports/security/trivy-auth-image.json \
+            --exit-code 0 \
+            ${IMAGE_AUTH}:${BUILD_NUMBER}
 
-                docker run --rm \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v "$WORKSPACE:/repo" \
-                    -v trivy-cache:/root/.cache/ \
-                    aquasec/trivy:latest image \
-                    --severity ${SECURITY_SEVERITY} \
-                    --format json \
-                    --output reports/security/trivy-interview-image.json \
-                    --exit-code 0 \
-                    ${IMAGE_INTERVIEW}:${BUILD_NUMBER}
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$WORKSPACE:/repo" \
+            -v trivy-cache:/root/.cache/ \
+            -w /repo \
+            aquasec/trivy:latest image \
+            --severity ${SECURITY_SEVERITY} \
+            --format json \
+            --output reports/security/trivy-interview-image.json \
+            --exit-code 0 \
+            ${IMAGE_INTERVIEW}:${BUILD_NUMBER}
 
-                docker run --rm \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v "$WORKSPACE:/repo" \
-                    -v trivy-cache:/root/.cache/ \
-                    aquasec/trivy:latest image \
-                    --severity ${SECURITY_SEVERITY} \
-                    --format json \
-                    --output reports/security/trivy-frontend-image.json \
-                    --exit-code 0 \
-                    ${IMAGE_FRONTEND}:${BUILD_NUMBER}
-                '''
-            }
-        }
-
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$WORKSPACE:/repo" \
+            -v trivy-cache:/root/.cache/ \
+            -w /repo \
+            aquasec/trivy:latest image \
+            --severity ${SECURITY_SEVERITY} \
+            --format json \
+            --output reports/security/trivy-frontend-image.json \
+            --exit-code 0 \
+            ${IMAGE_FRONTEND}:${BUILD_NUMBER}
+        '''
+    }
+}
         stage('Docker Login & Push') {
             steps {
                 withCredentials([usernamePassword(
