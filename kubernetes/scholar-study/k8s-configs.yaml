@@ -192,4 +192,4 @@ type: Opaque
 data:
   MONGODB_URI: bW9uZ29kYjovL21vbmdvZGI6MjcwMTcvc2Nob2xhci1zdHVkeQ== # base64 encoded
   JWT_SECRET: c2Nob2xhcl9zZWNyZXRfMTIz
-  GROQ_API_KEY: eW91cl9ncm9xX2FwaV9rZXk=
+  GROQ_API_KEY: YOUR_GROQ_API_KEY_HERE_BASE64_ENCODED

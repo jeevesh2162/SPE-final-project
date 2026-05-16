@@ -1,10 +1,33 @@
-project-summary-1.md
-implementation-plan.md
-.~lock.*
-*.log
+# Environments
 .env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Kubernetes Secrets & Configs
+secrets.yaml
+kubeconfig*
+*.kubeconfig
+kubernetes/base/secrets.yaml
+kubernetes/scholar-study/secrets.yaml
+
+# Keys and Certificates
+*.key
+*.pem
+*.pub
+id_rsa*
+
+# Jenkins & CI
+*.log
 reports/
-report/
-*.sarif
-*.sbom.json
-*.cdx.json
+reports/security/
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+node_modules/
+dist/
+build/
