@@ -408,19 +408,26 @@
 
 
 
+// =================================================
 
 
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     environment {
         DOCKER_HUB_USER = 'jeevesh2802'
+
         IMAGE_AUTH = "${DOCKER_HUB_USER}/auth-service"
         IMAGE_INTERVIEW = "${DOCKER_HUB_USER}/interview-service"
         IMAGE_FRONTEND = "${DOCKER_HUB_USER}/frontend-service"
 
         SECURITY_REPORT_DIR = 'reports/security'
         SECURITY_SEVERITY = 'HIGH,CRITICAL'
+
         APP_BASE_URL = 'http://interview.local'
 
         GROQ_API_KEY = credentials('GROQ_API_KEY')
@@ -442,12 +449,24 @@ pipeline {
                     -v "$WORKSPACE:/repo" \
                     -w /repo \
                     zricethezav/gitleaks:latest detect \
-                    --source=. \
+                    --source=/repo \
                     --report-format=json \
                     --report-path=reports/security/gitleaks.json \
                     --redact \
                     --exit-code=0
                 '''
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                script {
+                    echo "Running Unit Tests for Auth Service..."
+                    // sh "npm test --prefix auth-service"
+
+                    echo "Running Unit Tests for Interview Service..."
+                    // sh "npm test --prefix interview-service"
+                }
             }
         }
 
@@ -506,9 +525,59 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                docker build -t ${IMAGE_AUTH}:latest auth-service
-                docker build -t ${IMAGE_INTERVIEW}:latest interview-service
-                docker build -t ${IMAGE_FRONTEND}:latest frontend
+                docker build \
+                    -t ${IMAGE_AUTH}:${BUILD_NUMBER} \
+                    -t ${IMAGE_AUTH}:latest \
+                    auth-service
+
+                docker build \
+                    -t ${IMAGE_INTERVIEW}:${BUILD_NUMBER} \
+                    -t ${IMAGE_INTERVIEW}:latest \
+                    interview-service
+
+                docker build \
+                    -t ${IMAGE_FRONTEND}:${BUILD_NUMBER} \
+                    -t ${IMAGE_FRONTEND}:latest \
+                    frontend
+                '''
+            }
+        }
+
+        stage('Container Image Scan') {
+            steps {
+                sh '''
+                docker run --rm \
+                    -v /var/run/docker.sock:/var/run/docker.sock \
+                    -v "$WORKSPACE:/repo" \
+                    -v trivy-cache:/root/.cache/ \
+                    aquasec/trivy:latest image \
+                    --severity ${SECURITY_SEVERITY} \
+                    --format json \
+                    --output reports/security/trivy-auth-image.json \
+                    --exit-code 0 \
+                    ${IMAGE_AUTH}:${BUILD_NUMBER}
+
+                docker run --rm \
+                    -v /var/run/docker.sock:/var/run/docker.sock \
+                    -v "$WORKSPACE:/repo" \
+                    -v trivy-cache:/root/.cache/ \
+                    aquasec/trivy:latest image \
+                    --severity ${SECURITY_SEVERITY} \
+                    --format json \
+                    --output reports/security/trivy-interview-image.json \
+                    --exit-code 0 \
+                    ${IMAGE_INTERVIEW}:${BUILD_NUMBER}
+
+                docker run --rm \
+                    -v /var/run/docker.sock:/var/run/docker.sock \
+                    -v "$WORKSPACE:/repo" \
+                    -v trivy-cache:/root/.cache/ \
+                    aquasec/trivy:latest image \
+                    --severity ${SECURITY_SEVERITY} \
+                    --format json \
+                    --output reports/security/trivy-frontend-image.json \
+                    --exit-code 0 \
+                    ${IMAGE_FRONTEND}:${BUILD_NUMBER}
                 '''
             }
         }
@@ -520,16 +589,38 @@ pipeline {
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
+
                     sh '''
                     echo "$PASS" | docker login -u "$USER" --password-stdin
+
+                    docker push ${IMAGE_AUTH}:${BUILD_NUMBER}
                     docker push ${IMAGE_AUTH}:latest
+
+                    docker push ${IMAGE_INTERVIEW}:${BUILD_NUMBER}
                     docker push ${IMAGE_INTERVIEW}:latest
+
+                    docker push ${IMAGE_FRONTEND}:${BUILD_NUMBER}
                     docker push ${IMAGE_FRONTEND}:latest
                     '''
                 }
             }
         }
 
+        stage('DAST Baseline Scan') {
+            steps {
+                sh '''
+                docker run --rm \
+                    --network host \
+                    -v "$WORKSPACE/reports/security:/zap/wrk" \
+                    zaproxy/zap-stable:latest zap-baseline.py \
+                    -t "${APP_BASE_URL}" \
+                    -r zap-baseline.html \
+                    -J zap-baseline.json \
+                    -w zap-baseline.md \
+                    -I
+                '''
+            }
+        }
     }
 
     post {
@@ -538,3 +629,132 @@ pipeline {
         }
     }
 }
+
+// pipeline {
+//     agent any
+
+//     environment {
+//         DOCKER_HUB_USER = 'jeevesh2802'
+//         IMAGE_AUTH = "${DOCKER_HUB_USER}/auth-service"
+//         IMAGE_INTERVIEW = "${DOCKER_HUB_USER}/interview-service"
+//         IMAGE_FRONTEND = "${DOCKER_HUB_USER}/frontend-service"
+
+//         SECURITY_REPORT_DIR = 'reports/security'
+//         SECURITY_SEVERITY = 'HIGH,CRITICAL'
+//         APP_BASE_URL = 'http://interview.local'
+
+//         GROQ_API_KEY = credentials('GROQ_API_KEY')
+//         JWT_SECRET = credentials('JWT_SECRET')
+//     }
+
+//     stages {
+
+//         stage('Prepare Reports') {
+//             steps {
+//                 sh 'mkdir -p reports/security'
+//             }
+//         }
+
+//         stage('Secret Scan (Gitleaks)') {
+//             steps {
+//                 sh '''
+//                 docker run --rm \
+//                     -v "$WORKSPACE:/repo" \
+//                     -w /repo \
+//                     zricethezav/gitleaks:latest detect \
+//                     --source=. \
+//                     --report-format=json \
+//                     --report-path=reports/security/gitleaks.json \
+//                     --redact \
+//                     --exit-code=0
+//                 '''
+//             }
+//         }
+
+//         stage('SCA Scan (Trivy FS)') {
+//             steps {
+//                 sh '''
+//                 docker run --rm \
+//                     -v "$WORKSPACE:/repo" \
+//                     -v trivy-cache:/root/.cache/ \
+//                     -w /repo \
+//                     aquasec/trivy:latest fs \
+//                     --scanners vuln \
+//                     --severity ${SECURITY_SEVERITY} \
+//                     --format json \
+//                     --output reports/security/trivy-fs.json \
+//                     --exit-code 0 \
+//                     /repo
+//                 '''
+//             }
+//         }
+
+//         stage('SAST Scan (Semgrep)') {
+//             steps {
+//                 sh '''
+//                 docker run --rm \
+//                     -v "$WORKSPACE:/src" \
+//                     -w /src \
+//                     semgrep/semgrep:latest semgrep scan \
+//                     --config p/owasp-top-ten \
+//                     --config p/nodejs \
+//                     --severity ERROR \
+//                     --sarif \
+//                     --output reports/security/semgrep.sarif \
+//                     .
+//                 '''
+//             }
+//         }
+
+//         stage('IaC Scan (Trivy Config)') {
+//             steps {
+//                 sh '''
+//                 docker run --rm \
+//                     -v "$WORKSPACE:/repo" \
+//                     -v trivy-cache:/root/.cache/ \
+//                     -w /repo \
+//                     aquasec/trivy:latest config \
+//                     --severity ${SECURITY_SEVERITY} \
+//                     --format json \
+//                     --output reports/security/trivy-iac.json \
+//                     --exit-code 0 \
+//                     /repo
+//                 '''
+//             }
+//         }
+
+//         stage('Build Docker Images') {
+//             steps {
+//                 sh '''
+//                 docker build -t ${IMAGE_AUTH}:latest auth-service
+//                 docker build -t ${IMAGE_INTERVIEW}:latest interview-service
+//                 docker build -t ${IMAGE_FRONTEND}:latest frontend
+//                 '''
+//             }
+//         }
+
+//         stage('Docker Login & Push') {
+//             steps {
+//                 withCredentials([usernamePassword(
+//                     credentialsId: 'docker-registry-creds',
+//                     usernameVariable: 'USER',
+//                     passwordVariable: 'PASS'
+//                 )]) {
+//                     sh '''
+//                     echo "$PASS" | docker login -u "$USER" --password-stdin
+//                     docker push ${IMAGE_AUTH}:latest
+//                     docker push ${IMAGE_INTERVIEW}:latest
+//                     docker push ${IMAGE_FRONTEND}:latest
+//                     '''
+//                 }
+//             }
+//         }
+
+//     }
+
+//     post {
+//         always {
+//             archiveArtifacts artifacts: 'reports/security/**/*', allowEmptyArchive: true
+//         }
+//     }
+// }
