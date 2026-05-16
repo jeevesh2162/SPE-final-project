@@ -405,16 +405,16 @@
 //         }
 //     }
 // }
+
+
+
+
+
 pipeline {
     agent any
 
-    triggers {
-        githubPush()
-    }
-
     environment {
         DOCKER_HUB_USER = 'jeevesh2802'
-
         IMAGE_AUTH = "${DOCKER_HUB_USER}/auth-service"
         IMAGE_INTERVIEW = "${DOCKER_HUB_USER}/interview-service"
         IMAGE_FRONTEND = "${DOCKER_HUB_USER}/frontend-service"
@@ -429,9 +429,9 @@ pipeline {
 
     stages {
 
-        stage('Prepare Security Reports') {
+        stage('Prepare Reports') {
             steps {
-                sh 'mkdir -p ${SECURITY_REPORT_DIR}'
+                sh 'mkdir -p reports/security'
             }
         }
 
@@ -442,26 +442,16 @@ pipeline {
                     -v "$WORKSPACE:/repo" \
                     -w /repo \
                     zricethezav/gitleaks:latest detect \
-                    --source=/repo \
+                    --source=. \
                     --report-format=json \
-                    --report-path="${SECURITY_REPORT_DIR}/gitleaks.json" \
+                    --report-path=reports/security/gitleaks.json \
                     --redact \
                     --exit-code=0
                 '''
             }
         }
 
-        stage('Unit Tests') {
-            steps {
-                script {
-                    echo "Running Auth Service Tests..."
-                    echo "Running Interview Service Tests..."
-                    echo "Running Frontend Tests..."
-                }
-            }
-        }
-
-        stage('SCA (Trivy Filesystem Scan)') {
+        stage('SCA Scan (Trivy FS)') {
             steps {
                 sh '''
                 docker run --rm \
@@ -470,11 +460,11 @@ pipeline {
                     -w /repo \
                     aquasec/trivy:latest fs \
                     --scanners vuln \
-                    --severity "${SECURITY_SEVERITY}" \
+                    --severity ${SECURITY_SEVERITY} \
                     --format json \
-                    --output "${SECURITY_REPORT_DIR}/trivy-fs.json" \
+                    --output reports/security/trivy-fs.json \
                     --exit-code 1 \
-                    auth-service interview-service frontend
+                    .
                 '''
             }
         }
@@ -490,9 +480,9 @@ pipeline {
                     --config p/nodejs \
                     --severity ERROR \
                     --sarif \
-                    --output "${SECURITY_REPORT_DIR}/semgrep.sarif" \
+                    --output reports/security/semgrep.sarif \
                     --error \
-                    auth-service interview-service frontend
+                    .
                 '''
             }
         }
@@ -505,9 +495,9 @@ pipeline {
                     -v trivy-cache:/root/.cache/ \
                     -w /repo \
                     aquasec/trivy:latest config \
-                    --severity "${SECURITY_SEVERITY}" \
+                    --severity ${SECURITY_SEVERITY} \
                     --format json \
-                    --output "${SECURITY_REPORT_DIR}/trivy-iac.json" \
+                    --output reports/security/trivy-iac.json \
                     --exit-code 1 \
                     .
                 '''
@@ -516,70 +506,31 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                script {
-                    echo "Building Docker Images #${BUILD_NUMBER}"
-
-                    sh "docker build -t ${IMAGE_AUTH}:${BUILD_NUMBER} -t ${IMAGE_AUTH}:latest auth-service"
-                    sh "docker build -t ${IMAGE_INTERVIEW}:${BUILD_NUMBER} -t ${IMAGE_INTERVIEW}:latest interview-service"
-                    sh "docker build -t ${IMAGE_FRONTEND}:${BUILD_NUMBER} -t ${IMAGE_FRONTEND}:latest frontend"
-                }
+                sh '''
+                docker build -t ${IMAGE_AUTH}:latest auth-service
+                docker build -t ${IMAGE_INTERVIEW}:latest interview-service
+                docker build -t ${IMAGE_FRONTEND}:latest frontend
+                '''
             }
         }
 
-        stage('Docker Hub Login & Push') {
+        stage('Docker Login & Push') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-registry-creds',
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
-
-                    sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
-
-                    sh "docker push ${IMAGE_AUTH}:${BUILD_NUMBER}"
-                    sh "docker push ${IMAGE_INTERVIEW}:${BUILD_NUMBER}"
-                    sh "docker push ${IMAGE_FRONTEND}:${BUILD_NUMBER}"
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes (Ansible)') {
-            steps {
-                withCredentials([
-                    file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG_FILE'),
-                    string(credentialsId: 'JWT_SECRET', variable: 'JWT_SECRET'),
-                    string(credentialsId: 'GROQ_API_KEY', variable: 'GROQ_API_KEY')
-                ]) {
                     sh '''
-                    export KUBECONFIG="$KUBECONFIG_FILE"
-
-                    ansible-playbook ansible/playbooks/deploy.yml \
-                        -e image_tag=${BUILD_NUMBER} \
-                        -e docker_hub_user=${DOCKER_HUB_USER} \
-                        -e jwt_secret="$JWT_SECRET" \
-                        -e groq_api_key="$GROQ_API_KEY"
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
+                    docker push ${IMAGE_AUTH}:latest
+                    docker push ${IMAGE_INTERVIEW}:latest
+                    docker push ${IMAGE_FRONTEND}:latest
                     '''
                 }
             }
         }
 
-        stage('DAST Scan (ZAP)') {
-            steps {
-                sh '''
-                curl -fsS --retry 12 --retry-all-errors --retry-delay 5 "${APP_BASE_URL}/api/interview/health"
-
-                docker run --rm \
-                    --network host \
-                    -v "$WORKSPACE/${SECURITY_REPORT_DIR}:/zap/wrk" \
-                    zaproxy/zap-stable:latest zap-baseline.py \
-                    -t "${APP_BASE_URL}" \
-                    -r zap-baseline.html \
-                    -J zap-baseline.json \
-                    -w zap-baseline.md \
-                    -I
-                '''
-            }
-        }
     }
 
     post {
