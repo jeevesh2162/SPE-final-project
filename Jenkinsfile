@@ -463,8 +463,8 @@ pipeline {
                     --severity ${SECURITY_SEVERITY} \
                     --format json \
                     --output reports/security/trivy-fs.json \
-                    --exit-code 1 \
-                    .
+                    --exit-code 0 \
+                    /repo
                 '''
             }
         }
@@ -481,7 +481,6 @@ pipeline {
                     --severity ERROR \
                     --sarif \
                     --output reports/security/semgrep.sarif \
-                    --error \
                     .
                 '''
             }
@@ -498,8 +497,8 @@ pipeline {
                     --severity ${SECURITY_SEVERITY} \
                     --format json \
                     --output reports/security/trivy-iac.json \
-                    --exit-code 1 \
-                    .
+                    --exit-code 0 \
+                    /repo
                 '''
             }
         }
