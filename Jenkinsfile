@@ -27,7 +27,9 @@
     //         }
 
 
-    //         stage('Secret Scan') {
+    //         stage('Secret 
+    // 
+    // n') {
     //             steps {
     //                 sh '''
     //                 docker run --rm \
@@ -277,22 +279,22 @@ pipeline {
         }
 
         stage('SCA Filesystem Scan') {
-            steps {
-                sh '''
-                docker run --rm \
-                    -v "$WORKSPACE:/repo" \
-                    -v trivy-cache:/root/.cache/ \
-                    -w /repo \
-                    aquasec/trivy:latest fs \
-                    --scanners vuln \
-                    --severity "${SECURITY_SEVERITY}" \
-                    --format json \
-                    --output "${SECURITY_REPORT_DIR}/trivy-fs.json" \
-                    --exit-code 1 \
-                    services
-                '''
-            }
-        }
+    steps {
+        sh '''
+        docker run --rm \
+            -v "$WORKSPACE:/repo" \
+            -v trivy-cache:/root/.cache/ \
+            -w /repo \
+            aquasec/trivy:latest fs \
+            --scanners vuln \
+            --severity "${SECURITY_SEVERITY}" \
+            --format json \
+            --output "${SECURITY_REPORT_DIR}/trivy-fs.json" \
+            --exit-code 1 \
+            .
+        '''
+    }
+}
 
         stage('SAST Scan') {
             steps {
