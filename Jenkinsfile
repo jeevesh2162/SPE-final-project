@@ -16,7 +16,6 @@ pipeline {
         
         GROQ_API_KEY = credentials('GROQ_API_KEY')
         JWT_SECRET = credentials('JWT_SECRET')
-        DOCKER_HUB_USER = credentials('DOCKER_HUB_USER')
         DOCKER_HUB_PASS = credentials('DOCKER_HUB_PASS')
     }
 
