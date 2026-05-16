@@ -1,0 +1,51 @@
+---
+- name: Setup Development Environment
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: 
+          - docker.io
+          - docker-compose
+        state: present
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Download Minikube
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: Install kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/{{ lookup('pipe', 'curl -L -s https://dl.k8s.io/release/stable.txt') }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install Jenkins (Open Source)
+      block:
+        - name: Add Jenkins GPG key
+          apt_key:
+            url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+            state: present
+        - name: Add Jenkins repository
+          apt_repository:
+            repo: deb https://pkg.jenkins.io/debian-stable binary/
+            state: present
+        - name: Install Jenkins
+          apt:
+            name: 
+              - openjdk-17-jre
+              - jenkins
+            state: present

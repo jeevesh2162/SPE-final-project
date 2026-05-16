@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interview-service
+  labels:
+    app: interview-service
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: interview-service
+  template:
+    metadata:
+      labels:
+        app: interview-service
+    spec:
+      containers:
+      - name: interview-service
+        image: "{{ docker_hub_user }}/interview-service:{{ image_tag }}"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5002
+        livenessProbe:
+          httpGet:
+            path: /api/interview/health
+            port: 5002
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/interview/ready
+            port: 5002
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: groq-api-key
+        - name: GROQ_MODEL
+          value: "llama-3.3-70b-versatile"
+        - name: GROQ_TIMEOUT_MS
+          value: "30000"
+        - name: MONGO_URI
+          value: "mongodb://mongodb:27017/interview_db"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interview-service
+spec:
+  selector:
+    app: interview-service
+  ports:
+  - protocol: TCP
+    port: 5002
+    targetPort: 5002
