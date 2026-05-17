@@ -1,117 +1,30 @@
-# ---
-# - name: Deploy Microservices to Minikube
-#   hosts: localhost
-#   vars:
-#     docker_hub_user: "jeevesh2802"
-#     jwt_secret: "{{ jwt_secret }}"
-#     groq_api_key: "{{ groq_api_key }}"
-#   tasks:
-#     - name: Apply Application Secrets
-#       kubernetes.core.k8s:
-#         state: present
-#         definition:
-#           apiVersion: v1
-#           kind: Secret
-#           metadata:
-#             name: app-secrets
-#           type: Opaque
-#           stringData:
-#             JWT_SECRET: "{{ jwt_secret }}"
-#             GROQ_API_KEY: "{{ groq_api_key }}"
-
-#     - name: Apply MongoDB Manifest
-#       kubernetes.core.k8s:
-#         state: present
-#         definition: "{{ lookup('file', '../../k8s/base/mongodb.yaml') | from_yaml }}"
-
-#     - name: Apply Auth Service Manifest
-#       kubernetes.core.k8s:
-#         state: present
-#         definition: "{{ lookup('template', '../../k8s/base/auth-deployment.yaml.j2') }}"
-    
-#     - name: Apply Interview Service Manifest
-#       kubernetes.core.k8s:
-#         state: present
-#         definition: "{{ lookup('template', '../../k8s/base/interview-deployment.yaml.j2') }}"
-
-#     - name: Apply Frontend Service Manifest
-#       kubernetes.core.k8s:
-#         state: present
-#         definition: "{{ lookup('template', '../../k8s/base/frontend-deployment.yaml.j2') }}"
-
-#     - name: Apply Ingress Manifest
-#       kubernetes.core.k8s:
-#         state: present
-#         definition: "{{ lookup('file', '../../k8s/base/ingress.yaml') | from_yaml }}"
-
-#     - name: Wait for MongoDB rollout
-#       kubernetes.core.k8s_info:
-#         api_version: apps/v1
-#         kind: Deployment
-#         name: mongodb
-#         wait: true
-#         wait_condition:
-#           type: Available
-#           status: "True"
-#         wait_timeout: 180
-
-#     - name: Wait for Auth Service rollout
-#       kubernetes.core.k8s_info:
-#         api_version: apps/v1
-#         kind: Deployment
-#         name: auth-service
-#         wait: true
-#         wait_condition:
-#           type: Available
-#           status: "True"
-#         wait_timeout: 180
-
-#     - name: Wait for Interview Service rollout
-#       kubernetes.core.k8s_info:
-#         api_version: apps/v1
-#         kind: Deployment
-#         name: interview-service
-#         wait: true
-#         wait_condition:
-#           type: Available
-#           status: "True"
-#         wait_timeout: 180
-
-#     - name: Wait for Frontend Service rollout
-#       kubernetes.core.k8s_info:
-#         api_version: apps/v1
-#         kind: Deployment
-#         name: frontend-service
-#         wait: true
-#         wait_condition:
-#           type: Available
-#           status: "True"
-#         wait_timeout: 180
-
 ---
 - name: Deploy Microservices to Minikube
   hosts: localhost
   gather_facts: false
 
-  vars_files:
-    - ../group_vars/all/vault.yml
-
   vars:
     docker_hub_user: "jeevesh2802"
+    k8s_namespace: default
+
+  vars_files:
+    - group_vars/all/vault.yml
 
   tasks:
 
     # ==============================
-    # 1. CREATE KUBERNETES SECRET
+    # 1. CREATE SECRET
     # ==============================
     - name: Apply Application Secrets from Vault
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition:
           apiVersion: v1
           kind: Secret
           metadata:
             name: app-secrets
+            namespace: "{{ k8s_namespace }}"
           type: Opaque
           stringData:
             JWT_SECRET: "{{ jwt_secret }}"
@@ -119,47 +32,59 @@
             MONGODB_URI: "{{ mongodb_uri }}"
 
     # ==============================
-    # 2. APPLY DATABASE
+    # 2. APPLY MONGODB
     # ==============================
     - name: Apply MongoDB Manifest
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition: "{{ lookup('file', '../../k8s/base/mongodb.yaml') | from_yaml }}"
 
     # ==============================
-    # 3. APPLY SERVICES
+    # 3. APPLY AUTH SERVICE
     # ==============================
     - name: Apply Auth Service Manifest
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition: "{{ lookup('template', '../../k8s/base/auth-deployment.yaml.j2') }}"
 
+    # ==============================
+    # 4. APPLY INTERVIEW SERVICE
+    # ==============================
     - name: Apply Interview Service Manifest
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition: "{{ lookup('template', '../../k8s/base/interview-deployment.yaml.j2') }}"
 
+    # ==============================
+    # 5. APPLY FRONTEND
+    # ==============================
     - name: Apply Frontend Service Manifest
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition: "{{ lookup('template', '../../k8s/base/frontend-deployment.yaml.j2') }}"
 
     # ==============================
-    # 4. APPLY INGRESS
+    # 6. APPLY INGRESS
     # ==============================
     - name: Apply Ingress Manifest
       kubernetes.core.k8s:
         state: present
+        namespace: "{{ k8s_namespace }}"
         definition: "{{ lookup('file', '../../k8s/base/ingress.yaml') | from_yaml }}"
 
     # ==============================
-    # 5. WAIT FOR ROLLOUTS
+    # 7. VERIFY DEPLOYMENTS
     # ==============================
     - name: Wait for MongoDB rollout
       kubernetes.core.k8s_info:
         api_version: apps/v1
         kind: Deployment
         name: mongodb
+        namespace: "{{ k8s_namespace }}"
         wait: true
         wait_condition:
           type: Available
@@ -171,10 +96,8 @@
         api_version: apps/v1
         kind: Deployment
         name: auth-service
+        namespace: "{{ k8s_namespace }}"
         wait: true
-        wait_condition:
-          type: Available
-          status: "True"
         wait_timeout: 180
 
     - name: Wait for Interview Service rollout
@@ -182,10 +105,8 @@
         api_version: apps/v1
         kind: Deployment
         name: interview-service
+        namespace: "{{ k8s_namespace }}"
         wait: true
-        wait_condition:
-          type: Available
-          status: "True"
         wait_timeout: 180
 
     - name: Wait for Frontend Service rollout
@@ -193,8 +114,6 @@
         api_version: apps/v1
         kind: Deployment
         name: frontend-service
+        namespace: "{{ k8s_namespace }}"
         wait: true
-        wait_condition:
-          type: Available
-          status: "True"
         wait_timeout: 180
