@@ -8,7 +8,7 @@
     k8s_namespace: default
 
   vars_files:
-    - group_vars/all/vault.yml
+    - ../group_vars/all/vault.yml
 
   tasks:
 
