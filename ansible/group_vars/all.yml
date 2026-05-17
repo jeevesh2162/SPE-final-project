@@ -1,13 +1,3 @@
----
-# These are default values. Sensitive secrets should be encrypted with Ansible Vault 
-# or passed via extra-vars in the Jenkins pipeline.
-
-jwt_secret: "change_me_in_production"
-groq_api_key: "change_me_in_production"
 groq_model: "llama-3.3-70b-versatile"
 groq_timeout_ms: "30000"
-
-# Docker Hub configuration
 docker_hub_user: "jeevesh2802"
-
-image_tag: "latest"

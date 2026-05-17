@@ -12,6 +12,7 @@ kubeconfig*
 *.kubeconfig
 kubernetes/base/secrets.yaml
 kubernetes/scholar-study/secrets.yaml
+kubernetes/base/devops-venv/
 
 # Keys and Certificates
 *.key

@@ -22,11 +22,10 @@ spec:
     spec:
       containers:
       - name: frontend-service
-        image: "{{ docker_hub_user }}/frontend-service:latest"
+        image: "jeevesh2802/frontend-service:17"
         imagePullPolicy: Always
         ports:
         - containerPort: 80
-
         livenessProbe:
           httpGet:
             path: /
@@ -35,7 +34,6 @@ spec:
           periodSeconds: 20
           timeoutSeconds: 5
           failureThreshold: 3
-
         readinessProbe:
           httpGet:
             path: /
@@ -44,7 +42,6 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-
         resources:
           limits:
             cpu: "500m"

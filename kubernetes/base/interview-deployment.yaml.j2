@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: interview-service
-        image: "{{ docker_hub_user }}/interview-service:{{ image_tag }}"
+        image: "{{ docker_hub_user }}/interview-service:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 5002

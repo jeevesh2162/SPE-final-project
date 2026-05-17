@@ -22,10 +22,11 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: "{{ docker_hub_user }}/auth-service:{{ image_tag }}"
+        image: "{{ docker_hub_user }}/auth-service:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
+
         livenessProbe:
           httpGet:
             path: /api/auth/health
@@ -34,6 +35,7 @@ spec:
           periodSeconds: 20
           timeoutSeconds: 5
           failureThreshold: 3
+
         readinessProbe:
           httpGet:
             path: /api/auth/ready
@@ -42,6 +44,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+
         resources:
           limits:
             cpu: "500m"
@@ -49,12 +52,14 @@ spec:
           requests:
             cpu: "250m"
             memory: "256Mi"
+
         env:
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: jwt-secret
+
         - name: MONGO_URI
           value: "mongodb://mongodb:27017/auth_db"
 ---
