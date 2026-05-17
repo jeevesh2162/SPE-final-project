@@ -846,6 +846,17 @@ pipeline {
             }
         }
 
+        stage('Debug Kubeconfig') {
+    steps {
+        sh '''
+        echo "===== KUBECONFIG DEBUG START ====="
+        cat $KUBECONFIG_FILE | head -30
+        echo "===== KUBECONFIG DEBUG END ====="
+        '''
+    }
+}
+
+
         stage('Deploy to Kubernetes (Ansible + Vault)') {
             steps {
                 withCredentials([
