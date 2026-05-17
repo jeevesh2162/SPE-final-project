@@ -2,19 +2,23 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
   - host: interview.local
     http:
       paths:
+
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: frontend-service
+            name: frontend
             port:
               number: 80
+
       - path: /api/auth
         pathType: Prefix
         backend:
@@ -22,6 +26,7 @@ spec:
             name: auth-service
             port:
               number: 5001
+
       - path: /api/interview
         pathType: Prefix
         backend:
